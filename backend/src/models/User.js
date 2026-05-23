@@ -4,6 +4,19 @@ import jwt from "jsonwebtoken";
 
 const userSchema = new mongoose.Schema(
   {
+    name: {
+      type: String,
+      trim: true,
+      maxlength: [50, "Name cannot exceed 50 characters"],
+      default: null
+    },
+
+    mobile: {
+      type: String,
+      trim: true,
+      default: null
+    },
+
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -15,13 +28,12 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      select: false,
+      select: false, // 🔒 Kept secure, query par automatically hide rahega
       maxlength: [100, "Password cannot exceed 100 characters"],
     },
 
     provider: {
       type: String,
-      required: [true, "Provider is required"],
       enum: ["local", "google", "facebook", "twitter", "tiktok"],
       default: "local",
     },
@@ -57,41 +69,33 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Compound index
+// Compound index for high performance OAuth query pipelines
 userSchema.index({ socialId: 1, provider: 1 });
 
-// Hash password before save
-userSchema.pre("save", async function (next) {
+// ⚡ FIX: Refactored to Modern Async/Await Pre-Save Lifecycle Hook
+// Removed 'next' callback signature parameters to prevent the system breakdown runtime crash.
+userSchema.pre("save", async function () {
+  // If password structure isn't updated or blank (OAuth nodes handling), escape transaction
   if (!this.isModified("password") || !this.password) {
-    return next();
+    return;
   }
 
   try {
     const salt = await bcrypt.genSalt(12);
-
     this.password = await bcrypt.hash(this.password, salt);
-
-    next();
   } catch (error) {
-    next(error);
+    throw new Error(`Password encryption phase failed: ${error.message}`);
   }
 });
 
-// Compare password
-userSchema.methods.comparePassword = async function (
-  candidatePassword
-) {
-  if (!this.password) {
-    return false;
-  }
-
-  return await bcrypt.compare(
-    candidatePassword,
-    this.password
-  );
+// Compare password configuration method
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  // Key fix: If password field is unselected, we handle comparison safely
+  if (!this.password) return false;
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Generate JWT
+// Generate JWT Engine mapping model fields dynamically
 userSchema.methods.generateJWT = function () {
   return jwt.sign(
     {
@@ -100,58 +104,43 @@ userSchema.methods.generateJWT = function () {
       role: this.role,
       tokenVersion: this.tokenVersion,
     },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || "fallback_glowb_secret_key",
     {
-      expiresIn:
-        process.env.JWT_EXPIRES_IN || "7d",
+      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     }
   );
 };
 
-// Public profile
-userSchema.methods.getPublicProfile =
-  function () {
-    return {
-      id: this._id,
-      email: this.email,
-      avatar: this.avatar,
-      provider: this.provider,
-      role: this.role,
-      createdAt: this.createdAt,
-    };
+// Public profile formatter
+userSchema.methods.getPublicProfile = function () {
+  return {
+    id: this._id,
+    name: this.name, // Added string variable
+    email: this.email,
+    mobile: this.mobile, // Added string variable
+    avatar: this.avatar,
+    provider: this.provider,
+    role: this.role,
+    createdAt: this.createdAt,
   };
-
-// Find by email
-userSchema.statics.findByEmail = function (
-  email
-) {
-  return this.findOne({
-    email: email.toLowerCase(),
-  });
 };
 
-// Find social login
-userSchema.statics.findBySocialId =
-  function (provider, socialId) {
-    return this.findOne({
-      provider,
-      socialId,
-    });
-  };
+// Statics Helper Methods
+userSchema.statics.findByEmail = function (email) {
+  return this.findOne({ email: email.toLowerCase() });
+};
 
-// Remove sensitive fields
+userSchema.statics.findBySocialId = function (provider, socialId) {
+  return this.findOne({ provider, socialId });
+};
+
 userSchema.set("toJSON", {
   transform: function (doc, ret) {
     delete ret.password;
     delete ret.__v;
-
     return ret;
   },
 });
 
-const User = mongoose.model(
-  "User",
-  userSchema
-);
-
+const User = mongoose.model("User", userSchema);
 export default User;

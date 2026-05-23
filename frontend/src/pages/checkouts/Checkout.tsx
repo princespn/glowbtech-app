@@ -34,7 +34,7 @@ export default function Checkout() {
     const loadCheckoutPayload = async () => {
       try {
         const userId = localStorage.getItem('glowbtech_user_id') || 'temp_user_node_99';
-        const response = await axiosClient.get(`/cart/${userId}`);
+        const response = await axiosClient.get(`/carts/${userId}`);
         if (response.data && response.data.success && response.data.cart) {
           setCartItems(response.data.cart.items || []);
         }
@@ -72,12 +72,11 @@ export default function Checkout() {
         totalAmount: totalAmount
       };
 
-      const response = await axiosClient.post('/orders', orderPayload);
+      const response = await axiosClient.post('/orders/add', orderPayload);
 
       if (response.data.success) {
-        alert(`🎉 Transaction Success!\nOrder Reference Locked: ${response.data.order_id}`);
-        // Redirect back home with clean slate
-        navigate('/');
+        alert(`Transaction Success!\nOrder Reference Locked: ${response.data.order_id}`);
+        navigate('/payment-success', { state: { orderId: response.data.order_id } });
       }
     } catch (error: any) {
       console.error("Order processing execution crashed:", error);

@@ -13,6 +13,7 @@ import productRoutes from './routes/productRoutes.js';
 import cartsRoutes from './routes/cartRoutes.js';
 import contactRoutes from './routes/contact.js';
 import orderRoutes from './routes/orderRoutes.js'; 
+import userRoutes from './routes/userRoutes.js';
 
 
 await connectDB();
@@ -70,6 +71,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/carts', cartsRoutes);
 app.use('/api/orders', orderRoutes); 
+app.use('/api/users', userRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

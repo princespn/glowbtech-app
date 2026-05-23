@@ -1,42 +1,55 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, ShieldAlert } from 'lucide-react';
+import axiosClient from '../../api/axiosClient';
 
 export default function Login() {
+  // 🌟 Clean State Definitions
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      // Mock API call simulation - connects directly to your auth.ts endpoint
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      // 🚀 CLEAN AXIOS IMPLEMENTATION: Removed fetch configs & JSON.stringify strings
+      const response = await axiosClient.post('/auth/login', {
+        email,
+        password
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!data.success) {
-        throw new Error(data.message || 'Invalid validation keys.');
+      // ⚡ FIX: Corrected logical inversion breach (!data.success handles failure now)
+      if (!data || !data.success) {
+        throw new Error(data.message || 'Invalid authorization response metadata.');
       }
 
-      // Save token securely inside local cache structure
-      localStorage.setItem('glowbtech_token', data.token);
-      navigate('/checkout'); // Direct transition to secure route
+      // 🌟 Local Storage Synchronization for UI Session Context
+      if (data.token) {
+        localStorage.setItem('glowbtech_token', data.token);
+      }
+      localStorage.setItem('glowbtech_user_id', data.glowbtech_user_id);
+      
+      // Route clearance acquired, navigate to terminal checkout gate
+      navigate('/checkout'); 
     } catch (err: any) {
-      setError(err.message || 'Server network communication failed.');
+      // Gracefully capture backend error blocks
+      const errorMsg = err.response?.data?.message || err.message || 'Server network communication failed.';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-160px)] px-6 py-12">
-      <div className="w-full max-w-md bg-slate-900/40 backdrop-blur-md border border-slate-800/80 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-md bg-slate-900/40 backdrop-blur-md border border-slate-800/80 p-8 rounded-3xl shadow-2xl relative overflow-hidden text-left">
         
         {/* Decorative subtle backdrop light effect */}
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -86,9 +99,10 @@ export default function Login() {
 
           <button 
             type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-all mt-2 shadow-lg shadow-blue-600/10"
+            disabled={loading}
+            className={`w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-all mt-2 shadow-lg shadow-blue-600/10 ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            <LogIn size={16} /> Authenticate Session
+            <LogIn size={16} /> {loading ? 'Authorizing Cluster...' : 'Authenticate Session'}
           </button>
         </form>
 

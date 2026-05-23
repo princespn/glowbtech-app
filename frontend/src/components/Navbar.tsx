@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // 🔑 Added useNavigate for auth guarding
 import { ShoppingCart, LogIn, UserPlus, Trash2, X } from 'lucide-react';
 import axiosClient from '../api/axiosClient';
 
@@ -12,18 +12,16 @@ interface CartItem {
 }
 
 export default function Navbar() {
+  const navigate = useNavigate(); // 🚀 Navigation core motor initialized
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  // ✨ State converted from static mock to live Database Cart Array
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Dynamic function to poll data directly from MongoDB API
   const fetchUserCartInstance = async () => {
     try {
       const userId = localStorage.getItem('glowbtech_user_id') || 'temp_user_node_99';
       setLoading(true);
       
-      // Target matching your express endpoint setup
       const response = await axiosClient.get(`/carts/${userId}`);
       
       if (response.data && response.data.success && response.data.cart) {
@@ -36,12 +34,10 @@ export default function Navbar() {
     }
   };
 
-  // Synchronize layout elements on initial load and whenever dropdown triggers active state
   useEffect(() => {
     fetchUserCartInstance();
-  }, [isCartOpen]); // Fetching fresh data on dropdown click to avoid layout mismatch
+  }, [isCartOpen]); 
 
-  // Dynamic item deletion request handler handler
   const handleRemoveItem = async (productId: string) => {
     try {
       const userId = localStorage.getItem('glowbtech_user_id') || 'temp_user_node_99';
@@ -52,7 +48,6 @@ export default function Navbar() {
       });
 
       if (response.data.success) {
-        // Optimistic UI updates to clear from active viewport array immediately
         setCartItems((prev) => prev.filter(item => item.product_id !== productId));
       }
     } catch (error) {
@@ -60,14 +55,30 @@ export default function Navbar() {
     }
   };
 
-  // Safe arithmetic translation layout calculation engine
+  // 🛡️ Authentication Router Guard Block
+  const handleCheckoutRedirectionGuard = (e: React.MouseEvent) => {
+    e.preventDefault(); // Default routing layer bubble drop
+    setIsCartOpen(false); // Close dropdown slate
+
+    const actualUserId = localStorage.getItem('glowbtech_user_id');
+
+    // Mismatch Validation: If token is dead, missing, or stuck on guest-fallback matrix
+    if (!actualUserId || actualUserId === 'temp_user_node_99') {
+      alert("🔒 Access Denied! Authorization token missing. Please log in to process checkout manifest.");
+      // Redirecting with track query so login sequence can redirect user back to checkout post auth
+      navigate('/login?redirect=/checkout');
+    } else {
+      // Secure pipeline cleared, dispatch user directly to checkout deployment
+      navigate('/checkout');
+    }
+  };
+
   const totalAmount = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   return (
     <nav className="bg-slate-950/80 backdrop-blur-md border-b border-slate-900 sticky top-0 z-50 text-left">
       <div className="container mx-auto px-6 h-20 flex items-center justify-between relative">
         
-        {/* Logo */}
         <Link to="/" className="text-2xl font-bold tracking-wider bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
           GLOWBTECH
         </Link>
@@ -105,7 +116,6 @@ export default function Navbar() {
             )}
           </button>
 
-          {/* --- Interactive Dynamic Cart Dropdown Matrix --- */}
           {isCartOpen && (
             <div className="absolute right-0 top-14 w-85 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-3 duration-200">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
@@ -156,13 +166,13 @@ export default function Navbar() {
                       <span className="text-slate-400">Total Pipeline Value:</span>
                       <span className="text-emerald-400 font-black">₹{totalAmount.toLocaleString('en-IN')}</span>
                     </div>
-                    <Link 
-                      to="/checkout" 
-                      onClick={() => setIsCartOpen(false)}
-                      className="block text-center bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-3 rounded-xl transition-all tracking-wide uppercase shadow-sm"
+                    {/* ⚙️ Converted from Link to a clean event handler button to maintain look and layout integrity */}
+                    <button 
+                      onClick={handleCheckoutRedirectionGuard}
+                      className="w-full text-center bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-3 rounded-xl transition-all tracking-wide uppercase shadow-sm cursor-pointer block"
                     >
-                      Proceed to Deployment
-                    </Link>
+                      Proceed to checkout
+                    </button>
                   </div>
                 </>
               )}
